@@ -24,6 +24,8 @@ class ViewController: UIViewController {
         tf.backgroundColor = UIColor(white: 0, alpha: 0.03)
         tf.borderStyle = .roundedRect
         tf.font = UIFont.systemFont(ofSize: 14)
+        tf.keyboardType = .emailAddress
+        tf.addTarget(self, action: #selector(handleTextInputChanged), for: .editingChanged)
         return tf
     }()
     
@@ -33,6 +35,8 @@ class ViewController: UIViewController {
         tf.backgroundColor = UIColor(white: 0, alpha: 0.03)
         tf.borderStyle = .roundedRect
         tf.font = UIFont.systemFont(ofSize: 14)
+        tf.keyboardType = .twitter
+        tf.addTarget(self, action: #selector(handleTextInputChanged), for: .editingChanged)
         return tf
     }()
     
@@ -43,6 +47,7 @@ class ViewController: UIViewController {
         tf.backgroundColor = UIColor(white: 0, alpha: 0.03)
         tf.borderStyle = .roundedRect
         tf.font = UIFont.systemFont(ofSize: 14)
+        tf.addTarget(self, action: #selector(handleTextInputChanged), for: .editingChanged)
         return tf
     }()
     
@@ -53,13 +58,30 @@ class ViewController: UIViewController {
         button.layer.cornerRadius = 5
         button.titleLabel?.font = UIFont.boldSystemFont(ofSize: 14)
         button.setTitleColor(.white, for: .normal)
+        
         button.addTarget(self, action: #selector(registerUser), for: .touchUpInside)
+        button.isEnabled = false
         return button
     }()
     
+    @objc func handleTextInputChanged() {
+        let isFormValid = emailTextField.text?.count ?? 0 > 0 &&
+                          usernameTextField.text?.count ?? 0 > 1 &&
+                          passwordTextField.text?.count ?? 0 > 6
+        
+        if isFormValid {
+            signUpButton.backgroundColor = UIColor.rgb(r: 17, g: 154, b: 237)
+            signUpButton.isEnabled = true
+        } else {
+            signUpButton.backgroundColor = UIColor.rgb(r: 149, g: 204, b: 244)
+            signUpButton.isEnabled = false
+        }
+    }
+    
     @objc func registerUser() {
-        let email = "franco@francocorrea.com.uy"
-        let password = "lolxd21"
+        guard let email = emailTextField.text, email.count > 0 else { return }
+        guard let username = usernameTextField.text, username.count > 0 else { return }
+        guard let password = passwordTextField.text, password.count > 0 else { return }
         
         Auth.auth().createUser(withEmail: email, password: password) {
             user, error in
