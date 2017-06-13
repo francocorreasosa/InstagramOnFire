@@ -9,12 +9,15 @@
 import UIKit
 import Firebase
 import FirebaseAuth
+import FirebaseStorage
+import FirebaseDatabase
 
-class ViewController: UIViewController {
+class ViewController: UIViewController, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
     
     let plusPhotoButton: UIButton = {
         let button = UIButton(type: .system)
         button.setImage(#imageLiteral(resourceName: "plus_photo").withRenderingMode(.alwaysOriginal), for: .normal)
+        button.addTarget(self, action: #selector(handlePlusPhoto), for: .touchUpInside)
         return button
     }()
     
@@ -58,11 +61,32 @@ class ViewController: UIViewController {
         button.layer.cornerRadius = 5
         button.titleLabel?.font = UIFont.boldSystemFont(ofSize: 14)
         button.setTitleColor(.white, for: .normal)
-        
         button.addTarget(self, action: #selector(registerUser), for: .touchUpInside)
         button.isEnabled = false
         return button
     }()
+    
+    @objc func handlePlusPhoto() {
+        let imagePickerController = UIImagePickerController()
+        imagePickerController.delegate = self
+        imagePickerController.allowsEditing = true
+        
+        present(imagePickerController, animated: true, completion: nil)
+    }
+    
+    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [String : Any]) {
+        if let editedImage = info["UIImagePickerControllerEditedImage"] as? UIImage {
+            plusPhotoButton.setImage(editedImage.withRenderingMode(.alwaysOriginal), for: .normal)
+        } else if let original = info["UIImagePickerControllerOriginalImage"] as? UIImage {
+            plusPhotoButton.setImage(original.withRenderingMode(.alwaysOriginal), for: .normal)
+        }
+        
+        // Override button styles in order to accomplish design requirements
+        plusPhotoButton.layer.cornerRadius = plusPhotoButton.frame.width / 2
+        plusPhotoButton.layer.masksToBounds = true
+        
+        dismiss(animated: true, completion: nil)
+    }
     
     @objc func handleTextInputChanged() {
         let isFormValid = emailTextField.text?.count ?? 0 > 0 &&
@@ -94,13 +118,45 @@ class ViewController: UIViewController {
                 return
             }
             
-            let uid = String(describing: user?.uid)
-            self.simpleAlert(
-                title: "Success!",
-                message: "Successfully created user \(uid)",
-                buttonTitle: "Woot!"
-            )
+            guard let image = self.plusPhotoButton.imageView?.image else { return }
+            guard let uploadData = UIImageJPEGRepresentation(image, 0.5) else { return }
+            let filename = NSUUID().uuidString
             
+            Storage.storage().reference().child("profile_images").child(filename).putData(uploadData, metadata: nil) {
+                metadata, err in
+                
+                if let err = err {
+                    print ("Failed to upload image", err)
+                    return
+                }
+                
+                guard let profileImageUrl = metadata?.downloadURL()?.absoluteString else { return }
+                
+                print("Successfully uploaded image", profileImageUrl)
+                
+                guard let uid = user?.uid else { return }
+                
+                let usernameValues = [
+                    "username": username,
+                    "profileImageUrl": profileImageUrl
+                ]
+                let values = [uid: usernameValues]
+                Database.database().reference().child("users").updateChildValues(values) {
+                    err, ref in
+                    
+                    if let err = err {
+                        self.simpleAlert(title: "Error at registering", message: "We couldn't register you.")
+                        print("Error at registering:", err)
+                        return
+                    }
+                    
+                    self.simpleAlert(
+                        title: "Success!",
+                        message: "Successfully created user \(uid)",
+                        buttonTitle: "Woot!"
+                    )
+                }
+            }
         }
     }
     
